@@ -669,6 +669,18 @@
   body.sem-sessao header nav, body.sem-sessao main, body.sem-sessao footer { visibility: hidden; }
   .sessao b { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sessao .link-btn { font-size: 11.5px; padding: 2px 4px; }
+  .terminal-btn { font: inherit; font-size: 12px; font-weight: 600; color: var(--text-primary); background: #fff; border: 1px solid var(--border-strong); border-radius: 999px; padding: 3px 10px; cursor: pointer; white-space: nowrap; }
+  .terminal-btn:hover { border-color: var(--accent-blue); }
+  .terminal-lista { display: grid; gap: 8px; margin-bottom: 12px; }
+  .terminal-lista button { font: inherit; font-size: 15px; font-weight: 600; text-align: left; padding: 12px 14px; border: 1px solid var(--border-strong); border-radius: 6px; background: #fff; cursor: pointer; color: var(--text-primary); }
+  .terminal-lista button:hover, .terminal-lista button.atual { border-color: var(--accent-blue); background: rgba(0,110,255,0.06); }
+  .usr-terminais { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  .usr-terminais label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; text-transform: none; letter-spacing: 0; color: var(--text-primary); }
+  .usr-terminais input { width: auto; }
+  .tag-pend { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; vertical-align: middle; font-family: inherit; }
+  .tag-pend.red { background: rgba(224,92,75,0.12); color: #B03A2C; }
+  .tag-pend.blue { background: rgba(0,110,255,0.10); color: #0057CC; }
+  .div-info { display: block; font-size: 11.5px; color: #B03A2C; margin-top: 3px; font-family: inherit; }
 </style>
 </head>
 <body>
@@ -683,6 +695,7 @@
     <div class="sessao" title="Usuário logado">
       <span class="avatar" id="sessao-avatar"></span>
       <div><small id="sessao-perfis"></small><b id="sessao-nome"></b></div>
+      <button class="terminal-btn" id="terminal-btn" onclick="abrirEscolhaTerminal(false)" title="Terminal em que você está trabalhando">📍 <span id="terminal-nome">—</span></button>
       <button class="link-btn" onclick="abrirTrocaSenha(false)">Senha</button>
       <button class="link-btn" onclick="sair()">Sair</button>
     </div>
@@ -691,6 +704,7 @@
       <button class="nav-btn" data-view="transporte">Transporte</button>
       <button class="nav-btn" data-view="gatein">Gate In</button>
       <button class="nav-btn" data-view="estoque">Estoque</button>
+      <button class="nav-btn" data-view="solicitacao">Solicitação</button>
       <button class="nav-btn" data-view="retirada">Retirada</button>
       <button class="nav-btn" data-view="historico">Histórico</button>
       <button class="nav-btn" data-view="produtividade">Produtividade</button>
@@ -855,10 +869,54 @@
   </div>
 
   <!-- RETIRADA -->
+  <div class="view" id="view-solicitacao">
+    <div class="ret-layout">
+      <div class="panel">
+        <h2 class="display">Lacres em estoque</h2>
+        <div class="search-row">
+          <input type="text" id="sol-busca" placeholder="Container ou código do lacre..." oninput="renderSolicitacao()">
+        </div>
+        <div class="lacre-list" id="lista-solicitacao"></div>
+      </div>
+      <div class="panel">
+        <h2 class="display" id="sol-titulo">Solicitar retirada</h2>
+        <div id="sol-vazio" class="ret-form-empty">Selecione um lacre em estoque na lista ao lado.</div>
+        <div id="sol-form" style="display:none">
+          <div class="resumo" id="sol-resumo"></div>
+          <div class="grid2">
+            <div class="field">
+              <label>Para (equipe / operador de estufagem) <span class="req">*</span></label>
+              <input type="text" id="sol-destino" placeholder="Ex.: Equipe Estufagem A">
+            </div>
+            <div class="field">
+              <label>Solicitado por</label>
+              <input type="text" id="sol-por" readonly>
+            </div>
+          </div>
+          <div class="field">
+            <label>Observação (opcional)</label>
+            <input type="text" id="sol-obs" placeholder="Ex.: booking, previsão de estufagem...">
+          </div>
+          <button class="btn" id="sol-btn" onclick="salvarSolicitacao()">Solicitar retirada</button>
+          <button class="btn secondary" onclick="limparSolicitacao()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2 class="display">Solicitações em aberto</h2>
+      <p class="hint">Aguardando a baixa da Segurança Patrimonial. Acima de 24h aparece em vermelho.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Container</th><th>Lacre</th><th>Armador</th><th>Para</th><th>Solicitado por</th><th>Solicitado em</th><th>Aguardando</th><th></th></tr></thead>
+        <tbody id="tbl-solicitacoes"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+
   <div class="view" id="view-retirada">
     <div class="ret-layout">
       <div class="panel">
-        <h2 class="display">Selecionar lacre</h2>
+        <h2 class="display">Solicitações de retirada</h2>
         <div class="search-row">
           <input type="text" id="ret-busca" placeholder="Container ou código do lacre..." oninput="renderListaRetirada()">
         </div>
@@ -866,11 +924,11 @@
       </div>
 
       <div class="panel">
-        <h2 class="display">Liberar para estufagem</h2>
-        <div id="ret-vazio" class="ret-form-empty">Selecione um lacre em estoque na lista ao lado.</div>
+        <h2 class="display">Dar baixa da retirada</h2>
+        <div id="ret-vazio" class="ret-form-empty">Selecione uma solicitação na lista ao lado.</div>
         <div id="ret-form" style="display:none">
           <div class="resumo" id="ret-resumo"></div>
-          <div class="perm-aviso" id="ret-aviso">Seu perfil pode consultar os lacres em estoque, mas não liberar a retirada. Para isso é preciso a permissão “Liberar lacre”.</div>
+          <div class="perm-aviso" id="ret-aviso">Seu perfil pode consultar as solicitações, mas não dar a baixa. Para isso é preciso a permissão “Dar baixa”.</div>
           <div class="grid2">
             <div class="field">
               <label>Entregue a (equipe / operador de estufagem) <span class="req">*</span></label>
@@ -907,7 +965,7 @@
             <label>Observações (opcional)</label>
             <input type="text" id="ret-obs" placeholder="Ex: motivo de divergência, número do processo...">
           </div>
-          <button class="btn" onclick="confirmarRetirada()">Liberar lacre</button>
+          <button class="btn" onclick="confirmarRetirada()">Dar baixa e liberar</button>
           <button class="btn secondary" onclick="limparRetirada()">Cancelar</button>
         </div>
       </div>
@@ -925,6 +983,7 @@
           <option value="">Todos os status</option>
           <option value="Aguardando Gate In">Aguardando Gate In</option>
           <option value="Em Estoque">Em estoque</option>
+          <option value="Retirada solicitada">Retirada solicitada</option>
           <option value="Retirado">Retirado</option>
           <option value="Cancelado">Cancelado</option>
           <option value="__divergente">Cadastro divergente</option>
@@ -1239,7 +1298,7 @@
         <div class="conf-alerta" id="conf-al-lacre"></div>
       </div>
     </div>
-    <div class="obs-text" style="margin:-2px 0 14px">Se algum não conferir, a entrada é registrada como “cadastro divergente”.</div>
+    <div class="obs-text" style="margin:-2px 0 14px">Se algum não conferir, a entrada é <b>bloqueada</b>: o Transporte precisa corrigir o cadastro e você confere de novo.</div>
     <div class="field">
       <label>Foto do lacre <span class="req">*</span></label>
       <div class="camera" id="gi-cam">
@@ -1299,6 +1358,11 @@
       <label id="usr-senha-label">Senha provisória</label>
       <input type="text" id="usr-senha" autocomplete="off" spellcheck="false" placeholder="mínimo 8 caracteres">
       <div class="obs-text" id="usr-senha-dica" style="margin-top:6px"></div>
+    </div>
+    <div class="field">
+      <label>Terminais <span class="req">*</span></label>
+      <div class="usr-terminais" id="usr-terminais"></div>
+      <div class="obs-text" style="margin-top:6px">Quem tem o perfil Adm vê todos os terminais.</div>
     </div>
     <div class="field">
       <label>Perfis <span class="req">*</span></label>
@@ -1383,6 +1447,12 @@
         <input type="password" id="login-senha" autocomplete="current-password"></div>
       <div class="alert-box erro" id="login-erro"></div>
       <button class="btn" id="login-btn" onclick="entrar()">Entrar</button>
+    </div>
+    <div id="terminal-form" style="display:none">
+      <p>Em qual terminal você vai trabalhar agora?</p>
+      <div class="terminal-lista" id="terminal-lista"></div>
+      <div class="alert-box erro" id="terminal-erro"></div>
+      <button class="btn secondary" id="terminal-cancelar" onclick="fecharLogin()">Cancelar</button>
     </div>
     <div id="senha-form" style="display:none">
       <p id="senha-msg"></p>
@@ -2320,9 +2390,9 @@ function renderHistorico() {
   const total = pode("historico.total"), eu = usuarioAtual().nome;
   document.getElementById("hist-escopo").innerHTML = total
     ? "Mostrando o histórico de <b>todos</b> os usuários."
-    : "Mostrando só os lacres em que <b>você atuou</b> (cadastro, entrada ou retirada). O histórico de todos depende da permissão “Ver histórico de todos”.";
+    : "Mostrando só os lacres em que <b>você atuou</b> (cadastro, entrada, solicitação ou baixa). O histórico de todos depende da permissão “Ver histórico de todos”.";
   const lista = lacres.filter(noEscopo)
-    .filter(l => total || [l.cadastradoPor, l.recebidoPor, l.retiradoPor].includes(eu))
+    .filter(l => total || [l.cadastradoPor, l.recebidoPor, l.retiradoPor, l.solicitadoPor].includes(eu))
     .filter(l => contem(l, busca, podeVerDados() ? ["container", "codigoLacre", "placa", "motorista"] : ["container", "codigoLacre", "placa"]))
     .filter(l => !statusFiltro || (statusFiltro === "__divergente" ? temDivergencia(l) : statusVisivel(l) === statusFiltro))
     .sort((a, b) => b.dataHoraCadastro.localeCompare(a.dataHoraCadastro));
@@ -3131,8 +3201,10 @@ const MODULOS = [
     acoes: { ver: "Ver fila" }, especiais: [{ id: "entrada", nome: "Dar entrada" }] },
   { id: "estoque", nome: "Estoque", grupo: "Operação", desc: "Lacres sob guarda", view: "estoque",
     acoes: { ver: "Ver estoque" }, especiais: [{ id: "exportar", nome: "Exportar CSV" }] },
-  { id: "retirada", nome: "Retirada", grupo: "Operação", desc: "Liberação para estufagem", view: "retirada",
-    acoes: { ver: "Ver lacres" }, especiais: [{ id: "liberar", nome: "Liberar lacre" }] },
+  { id: "solicitacao", nome: "Solicitação", grupo: "Operação", desc: "Pedido de retirada (Operacional)", view: "solicitacao",
+    acoes: { ver: "Ver solicitações", criar: "Solicitar retirada", editar: "Editar solicitação", excluir: "Cancelar solicitação" } },
+  { id: "retirada", nome: "Retirada", grupo: "Operação", desc: "Baixa da retirada (Segurança)", view: "retirada",
+    acoes: { ver: "Ver solicitações para baixa" }, especiais: [{ id: "liberar", nome: "Dar baixa" }] },
   { id: "historico", nome: "Histórico", grupo: "Operação", desc: "Pessoal = só onde a pessoa atuou", view: "historico",
     acoes: { ver: "Ver histórico pessoal" }, especiais: [{ id: "total", nome: "Ver histórico de todos" }, { id: "exportar", nome: "Exportar CSV" }] },
   { id: "produtividade", nome: "Produtividade", grupo: "Operação", desc: "Indicadores de cada área", view: "produtividade",
@@ -3155,7 +3227,7 @@ const MODULOS = [
 ];
 const COLUNAS = [["ver", "Ver"], ["criar", "Criar"], ["editar", "Editar"], ["excluir", "Excluir"]];
 const VIEWS_ADMIN = ["usuarios", "perfis", "politicas", "auditoria"];
-const NOMES_VIEW = { painel: "Painel", transporte: "Transporte", gatein: "Gate In", estoque: "Estoque", retirada: "Retirada", historico: "Histórico", produtividade: "Produtividade", aduaneiro: "Aduaneiro", acessos: "Acessos" };
+const NOMES_VIEW = { painel: "Painel", transporte: "Transporte", gatein: "Gate In", estoque: "Estoque", solicitacao: "Solicitação", retirada: "Retirada", historico: "Histórico", produtividade: "Produtividade", aduaneiro: "Aduaneiro", acessos: "Acessos" };
 
 const POLITICAS = [
   { id: "sodCadastroEntrada", nome: "Segregação de funções: quem cadastra não dá entrada",
@@ -3166,6 +3238,8 @@ const POLITICAS = [
     desc: "Quem não tem a permissão “Ver dados pessoais” vê o nome do motorista mascarado (ex.: J••• d• S••••), inclusive nas buscas e exportações." },
   { id: "motivoCancelamento", nome: "Exigir motivo ao cancelar um cadastro",
     desc: "O cancelamento só acontece com justificativa, que fica no histórico do lacre e na auditoria." },
+  { id: "sodSolicitacaoBaixa", nome: "Segregação de funções: quem solicita a retirada não dá a baixa",
+    desc: "Impede que a mesma pessoa solicite a retirada de um lacre e dê a baixa dessa mesma solicitação." },
   { id: "auditarNegados", nome: "Registrar tentativas de acesso negado",
     desc: "Toda ação bloqueada por falta de permissão ou por segregação de funções entra na auditoria." }
 ];
@@ -3183,7 +3257,7 @@ function rotuloPerm(p) {
 const PERMS_PADRAO = {
   transportes: ["painel.ver", "transporte.ver", "transporte.criar", "transporte.editar", "transporte.excluir", "historico.ver", "dados.ver", "produtividade.ver", "produtividade.transporte"],
   gatein: ["painel.ver", "gatein.ver", "gatein.entrada", "estoque.ver", "historico.ver", "dados.ver", "produtividade.ver", "produtividade.gatein"],
-  operacional: ["painel.ver", "estoque.ver", "estoque.exportar", "retirada.ver", "historico.ver", "historico.exportar", "produtividade.ver", "produtividade.operacional"],
+  operacional: ["painel.ver", "estoque.ver", "estoque.exportar", "solicitacao.ver", "solicitacao.criar", "solicitacao.editar", "solicitacao.excluir", "historico.ver", "historico.exportar", "produtividade.ver", "produtividade.operacional"],
   seguranca: ["painel.ver", "gatein.ver", "estoque.ver", "estoque.exportar", "retirada.ver", "retirada.liberar", "historico.ver", "historico.exportar", "dados.ver", "auditoria.ver", "produtividade.ver", "produtividade.gatein", "produtividade.operacional"],
   aduaneiro: ["aduaneiro.ver", "aduaneiro.criar", "aduaneiro.excluir", "aduaneiro.retirar", "aduaneiro.exportar"]
 };
@@ -3293,7 +3367,7 @@ function podeVerView(v) {
   return pode(v + ".ver");
 }
 function primeiraViewPermitida() {
-  return ["painel", "transporte", "gatein", "estoque", "retirada", "historico", "produtividade", "aduaneiro", "acessos"].find(podeVerView) || "semacesso";
+  return ["painel", "transporte", "gatein", "estoque", "solicitacao", "retirada", "historico", "produtividade", "aduaneiro", "acessos"].find(podeVerView) || "semacesso";
 }
 function viewAtiva() { const v = document.querySelector(".view.active"); return v ? v.id.replace("view-", "") : "painel"; }
 
@@ -3537,7 +3611,7 @@ function renderEditorPerfil() {
   </div>`;
 
   // prévia do menu
-  const verViews = ["painel", "transporte", "gatein", "estoque", "retirada", "historico", "produtividade", "aduaneiro"];
+  const verViews = ["painel", "transporte", "gatein", "estoque", "solicitacao", "retirada", "historico", "produtividade", "aduaneiro"];
   const verAcessos = d.super || VIEWS_ADMIN.some(m => d.permissoes.includes(m + ".ver"));
   h += `<div class="ed-secao"><h3>Prévia: menu que este perfil vai ver</h3>
     <div class="menu-preview">${verViews.map(v => `<span class="${tem(v + ".ver") ? "on" : "off"}">${NOMES_VIEW[v]}</span>`).join("")}<span class="${verAcessos ? "on" : "off"}">Acessos</span></div>
@@ -3571,7 +3645,7 @@ function analisarPerfil(d) {
   const a = [];
   if (d.super) return [{ t: "info", m: "Perfil com acesso total: use apenas para quem administra o sistema." }];
   const tem = p => d.permissoes.includes(p);
-  const verAlguma = ["painel", "transporte", "gatein", "estoque", "retirada", "historico", "produtividade", "aduaneiro", ...VIEWS_ADMIN].some(m => tem(m + ".ver"));
+  const verAlguma = ["painel", "transporte", "gatein", "estoque", "solicitacao", "retirada", "historico", "produtividade", "aduaneiro", ...VIEWS_ADMIN].some(m => tem(m + ".ver"));
   if (!verAlguma) a.push({ t: "erro", m: "Este perfil não vê nenhuma tela. Quem tiver só ele vai entrar numa página sem acesso." });
   if (tem("transporte.criar") && tem("gatein.entrada"))
     a.push({ t: "warn", m: rbac.politicas.sodCadastroEntrada
@@ -3917,7 +3991,7 @@ function renderPoliticas() {
     `<div class="aviso ${a.t}"><span class="ic">${a.t === "info" ? "i" : "!"}</span><div>${a.m}</div></div>`).join("");
 }
 function primeiraViewPermitidaDe(u) {
-  const v = ["painel", "transporte", "gatein", "estoque", "retirada", "historico", "produtividade", "aduaneiro"].find(x => pode(x + ".ver", u));
+  const v = ["painel", "transporte", "gatein", "estoque", "solicitacao", "retirada", "historico", "produtividade", "aduaneiro"].find(x => pode(x + ".ver", u));
   return v || (VIEWS_ADMIN.some(m => pode(m + ".ver", u)) ? "acessos" : null);
 }
 document.getElementById("lista-politicas").addEventListener("change", e => {
@@ -4035,7 +4109,13 @@ function deBanco(r) {
   return {
     id: idLocal(r.id), uuid: r.id,
     codigoLacre: r.codigo_lacre, container: r.container, armador: r.armador, placa: r.placa, motorista: r.motorista,
-    status: r.status === "Cancelado" ? "Aguardando Gate In" : r.status, ativo: r.ativo,
+    // "Retirada solicitada" continua fisicamente em estoque: status "Em Estoque" + marca solicitado
+    status: r.status === "Cancelado" ? "Aguardando Gate In" : r.status === "Retirada solicitada" ? "Em Estoque" : r.status,
+    ativo: r.ativo, solicitado: r.status === "Retirada solicitada", terminal: r.terminal,
+    solicitadoPor: r.solicitado_por, solicitadoPorMim: r.solicitado_por_mim, solicitadoEm: iso(r.solicitado_em),
+    solicitacaoDestino: r.solicitacao_destino || "", solicitacaoObs: r.solicitacao_obs || "",
+    divPendente: !!r.div_pendente, divPendentePor: r.div_pendente_por, divPendenteEm: iso(r.div_pendente_em),
+    divContainerEncontrado: r.div_container_encontrado, divLacreEncontrado: r.div_lacre_encontrado,
     cadastradoPor: r.cadastrado_por, cadastradoPorMim: r.cadastrado_por_mim, dataHoraCadastro: iso(r.data_hora_cadastro),
     qtdEdicoes: r.qtd_edicoes,
     recebidoPor: r.recebido_por, recebidoPorMim: r.recebido_por_mim, dataHoraRecebimento: iso(r.data_hora_recebimento),
@@ -4052,8 +4132,8 @@ function deBanco(r) {
 }
 
 async function carregarLacres() {
-  const telas = ["transporte", "gatein", "estoque", "historico"].filter(t => pode(t + ".ver"));
-  if (pode("retirada.ver") && !pode("estoque.ver")) telas.push("retirada");
+  if (!SESSAO || !SESSAO.terminal) { lacres = []; return; }
+  const telas = ["transporte", "gatein", "estoque", "solicitacao", "retirada", "historico"].filter(t => pode(t + ".ver"));
   const respostas = await Promise.all(telas.map(t => rpc("listar_lacres", { p_tela: t, p_limite: 5000 })));
   const mapa = new Map();
   respostas.forEach(r => {
@@ -4105,6 +4185,9 @@ window.aplicarPermissoesUI = function () {
   av.textContent = u.nome ? iniciais(u.nome) : "?"; av.style.background = cor; av.style.color = corTexto(cor);
   $("sessao-nome").textContent = u.nome || "";
   $("sessao-perfis").textContent = SESSAO ? (SESSAO.perfis.map(p => p.nome).join(", ") || "sem perfil") : "";
+  $("terminal-nome").textContent = SESSAO && SESSAO.terminal ? SESSAO.terminal.nome : "—";
+  $("terminal-btn").disabled = !SESSAO || (SESSAO.terminais || []).length < 2;
+  $("terminal-btn").style.cursor = $("terminal-btn").disabled ? "default" : "pointer";
 
   document.querySelectorAll(".nav-btn").forEach(b => b.style.display = podeVerView(b.dataset.view) ? "" : "none");
 
@@ -4203,8 +4286,9 @@ window.confirmarGateIn = function () {
     if (digitado === cad) { $("conf-inp-" + campo).focus(); return erro(`O valor digitado para ${nome} é igual ao cadastrado. Se confere, marque ✓ Confere.`); }
     conf[campo] = { confere: false, encontrado: digitado };
   }
+  const divergente = !conf.container.confere || !conf.lacre.confere;
   const foto = cameras["gi-cam"].foto;
-  if (!foto) return erro("Tire a foto do lacre antes de confirmar a entrada.");
+  if (!divergente && !foto) return erro("Tire a foto do lacre antes de confirmar a entrada.");
   const integro = document.querySelector('input[name="gi-integro"]:checked').value === "Sim";
 
   return gravar(document.querySelector('button[onclick="confirmarGateIn()"]'), async () => {
@@ -4214,9 +4298,13 @@ window.confirmarGateIn = function () {
       p_lacre_confere: conf.lacre.confere,         p_lacre_encontrado: conf.lacre.encontrado,
       p_integro: integro, p_foto: foto
     });
-    if (!r.ok) return erro(r.erro);
+    if (!r.ok) {
+      erro(r.erro);
+      if (r.recusado) await recarregar(true);   // a divergência fica marcada no lacre para o Transporte
+      return;
+    }
     fecharGateIn();
-    showToast("Entrada do lacre " + l.codigoLacre + " registrada" + (r.cadastro_divergente ? " com cadastro divergente." : ". Lacre em estoque."));
+    showToast("Entrada do lacre " + l.codigoLacre + " registrada. Lacre em estoque.");
     await recarregar();
   });
 };
@@ -4226,6 +4314,9 @@ window.confirmarRetirada = function () {
   if (!exigir("retirada.liberar")) return;
   const l = lacres.find(x => x.id === selectedRetiradaId);
   if (!l) return;
+  if (rbac.politicas.sodSolicitacaoBaixa && l.solicitadoPorMim) {
+    showToast("Segregação de funções: quem solicitou a retirada não pode dar a baixa dela.", "erro"); return;
+  }
   if (rbac.politicas.sodEntradaRetirada && l.recebidoPorMim) {
     showToast("Segregação de funções: quem deu entrada no lacre não pode liberar a retirada dele.", "erro"); return;
   }
@@ -4241,7 +4332,7 @@ window.confirmarRetirada = function () {
       p_observacao: $("ret-obs").value.trim()
     });
     if (!r.ok) return showToast(r.erro, "erro");
-    showToast("Lacre " + l.codigoLacre + " liberado para " + entregueA + ".");
+    showToast("Baixa registrada: lacre " + l.codigoLacre + " entregue a " + entregueA + ".");
     limparRetirada();
     await recarregar();
   });
@@ -4285,7 +4376,8 @@ window.exportarHistorico = () => exportarComRegistro("historico", "historico.exp
 // ACESSOS (script 02d): usuários, perfis, políticas e auditoria no banco
 // =====================================================================
 const POL_ID = { sod_cadastro_entrada: "sodCadastroEntrada", sod_entrada_retirada: "sodEntradaRetirada",
-                 mascarar_dados: "mascararDados", motivo_cancelamento: "motivoCancelamento", auditar_negados: "auditarNegados" };
+                 mascarar_dados: "mascararDados", motivo_cancelamento: "motivoCancelamento", auditar_negados: "auditarNegados",
+                 sod_solicitacao_baixa: "sodSolicitacaoBaixa" };
 const POL_DB = Object.fromEntries(Object.entries(POL_ID).map(([a, b]) => [b, a]));
 
 async function carregarAcessos() {
@@ -4297,8 +4389,9 @@ async function carregarAcessos() {
   rbac.perfis = r.perfis || (SESSAO ? SESSAO.perfis.map(p => ({
     id: p.id, nome: p.nome, desc: "", cor: p.cor, sistema: true, super: SESSAO.super,
     permissoes: [...SESSAO.permissoes], armadores: SESSAO.armadores || [] })) : []);
+  rbac.terminais = r.terminais || [];
   rbac.usuarios = (r.usuarios || []).map(u => ({
-    id: u.id, nome: u.nome, email: u.login, login: u.login, perfis: u.perfis, ativo: u.ativo,
+    id: u.id, nome: u.nome, email: u.login, login: u.login, perfis: u.perfis, ativo: u.ativo, terminais: u.terminais || [],
     ultimoAcesso: iso(u.ultimoAcesso), trocarSenha: u.trocarSenha, bloqueado: u.bloqueado }));
   if (!rbac.usuarios.some(u => SESSAO && u.id === SESSAO.id) && SESSAO)
     rbac.usuarios.push({ id: SESSAO.id, nome: SESSAO.nome, email: SESSAO.login, perfis: SESSAO.perfis.map(p => p.id), ativo: true });
@@ -4335,6 +4428,10 @@ window.renderUsuarios = function () {
     const u = m && rbac.usuarios.find(x => x.id === m[1]);
     const cel = tr.querySelector("td:nth-child(3)");
     if (!u || !cel) return;
+    const celPerfis = tr.querySelector("td:nth-child(2)");
+    const nomesT = (u.terminais || []).map(id => ((rbac.terminais || []).find(t => t.id === id) || {}).nome || id);
+    const ehAdm = (u.perfis || []).some(id => (perfilPorId(id) || {}).super);
+    if (celPerfis) celPerfis.insertAdjacentHTML("beforeend", `<div class="obs-text" style="margin:4px 0 0">📍 ${esc(ehAdm ? "Todos os terminais" : (nomesT.join(", ") || "sem terminal"))}</div>`);
     if (u.ativo && u.trocarSenha) cel.insertAdjacentHTML("beforeend", ' <span class="badge gray" title="Ainda não criou a própria senha">Senha provisória</span>');
     if (u.ativo && u.bloqueado) cel.insertAdjacentHTML("beforeend", ' <span class="badge red" title="Errou a senha 5 vezes; libera sozinho em 15 min ou redefina a senha">Bloqueado</span>');
   });
@@ -4343,6 +4440,11 @@ window.renderUsuarios = function () {
 const _abrirUsuarioOriginal = window.abrirUsuario;
 window.abrirUsuario = function (id) {
   _abrirUsuarioOriginal(id);
+  const u = id ? rbac.usuarios.find(x => x.id === id) : null;
+  const marcados = u ? (u.terminais || []) : (SESSAO.terminal ? [SESSAO.terminal.id] : []);
+  const meus = (SESSAO.terminais || []).map(t => t.id);
+  $("usr-terminais").innerHTML = (rbac.terminais || []).map(t => `
+    <label><input type="checkbox" value="${esc(t.id)}" ${marcados.includes(t.id) ? "checked" : ""} ${SESSAO.super || meus.includes(t.id) ? "" : "disabled"}> ${esc(t.nome)}</label>`).join("");
   $("usr-senha").value = "";
   $("usr-senha-label").innerHTML = id ? "Redefinir senha (opcional)" : 'Senha provisória <span class="req">*</span>';
   $("usr-senha-dica").textContent = id
@@ -4359,9 +4461,12 @@ window.salvarUsuario = function () {
   const perfis = perfisMarcados();
   const ativo = document.querySelector('input[name="usr-ativo"]:checked').value === "1";
   const senha = $("usr-senha").value;
+  const terminais = [...document.querySelectorAll("#usr-terminais input:checked")].map(i => i.value);
+  const viraAdm = perfis.some(id => (perfilPorId(id) || {}).super);
   if (!nome) return erro("Informe o nome.");
   if (!/^[a-z0-9._-]{3,40}$/.test(login)) return erro("Login inválido: use de 3 a 40 letras minúsculas, números, ponto, hífen ou sublinhado (sem espaço e sem acento). Ex.: joao.silva");
   if (!perfis.length) return erro("Escolha pelo menos um perfil.");
+  if (!terminais.length && !viraAdm) return erro("Escolha pelo menos um terminal.");
   if (!usuarioEditId && senha.length < 8) return erro("Informe a senha provisória (mínimo 8 caracteres).");
   if (usuarioEditId && senha && senha.length < 8) return erro("A nova senha precisa ter pelo menos 8 caracteres.");
   if (usuarioEditId === SESSAO.id && !ativo) return erro("Você não pode desativar o seu próprio usuário.");
@@ -4369,7 +4474,7 @@ window.salvarUsuario = function () {
   return gravar(document.querySelector('button[onclick="salvarUsuario()"]'), async () => {
     const r = await rpc("salvar_usuario", {
       p_id: usuarioEditId, p_nome: nome, p_login: login, p_perfis: perfis, p_ativo: ativo,
-      p_senha_provisoria: senha || null });
+      p_senha_provisoria: senha || null, p_terminais: terminais });
     if (!r.ok) return erro(r.erro);
     fecharUsuario();
     showToast(criando ? `Usuário ${nome} criado. Login: ${login}` : `Usuário ${nome} atualizado.`);
@@ -4495,7 +4600,7 @@ window.salvarAdu = () => {};
 adu = { lotes: [] };
 
 async function carregarAduBanco() {
-  if (!(pode("aduaneiro.ver") || pode("aduaneiro.criar") || pode("aduaneiro.retirar"))) { adu = { lotes: [] }; return; }
+  if (!SESSAO || !SESSAO.terminal || !(pode("aduaneiro.ver") || pode("aduaneiro.criar") || pode("aduaneiro.retirar"))) { adu = { lotes: [] }; return; }
   const r = await rpc("carregar_aduaneiro");
   if (!r || !r.ok) return;
   adu = { lotes: r.lotes.map(l => ({
@@ -4570,6 +4675,234 @@ window.barraSaldo = function (lote) {
   const est = qtdEstoqueAdu(lote), tot = totalAdu(lote);
   const pct = est === tot ? 100 : Math.floor((est / tot) * 100);
   return `<span class="barra-est" role="img" aria-label="${pct}% em estoque"><span style="width:${pct}%"></span></span>${pct}%`;
+};
+
+
+// =====================================================================
+// FASE 3: terminais, trava no Gate In, solicitação → baixa
+// =====================================================================
+
+// ---------- terminal ----------
+function abrirEscolhaTerminal(obrigatorio) {
+  if (!SESSAO) return;
+  const lista = SESSAO.terminais || [];
+  if (!obrigatorio && lista.length < 2) return;
+  $("login-modal").classList.add("active");
+  $("login-form").style.display = "none";
+  $("senha-form").style.display = "none";
+  $("terminal-form").style.display = "";
+  $("terminal-cancelar").style.display = obrigatorio ? "none" : "";
+  $("terminal-erro").classList.remove("show");
+  $("terminal-lista").innerHTML = lista.map(t =>
+    `<button type="button" class="${SESSAO.terminal && SESSAO.terminal.id === t.id ? "atual" : ""}" onclick="escolherTerminal('${esc(t.id)}')">📍 ${esc(t.nome)}</button>`).join("");
+  if (obrigatorio) document.body.classList.add("sem-sessao");
+}
+async function escolherTerminal(id) {
+  try {
+    const r = await rpc("escolher_terminal", { p_terminal: id });
+    if (!r.ok) { $("terminal-erro").textContent = r.erro; $("terminal-erro").classList.add("show"); return; }
+    $("terminal-form").style.display = "none";
+    limparTransporte(); limparRetirada(); limparSolicitacao(); selectedGateInId = null;
+    aduLoteEst = null; aduLoteRet = null;
+    const view = viewAtiva();
+    await iniciarSessao(r.usuario);
+    if (view && view !== "semacesso" && podeVerView(view)) irPara(view);
+    showToast("Terminal: " + r.usuario.terminal.nome);
+  } catch (e) { falha(e); }
+}
+const _fecharLoginOriginal = fecharLogin;
+fecharLogin = function () { $("terminal-form").style.display = "none"; _fecharLoginOriginal(); };
+
+// ---------- status e etiquetas ----------
+window.statusVisivel = l => !l.ativo ? "Cancelado" : l.solicitado ? "Retirada solicitada" : l.status;
+const _badgeOriginal = window.badge;
+window.badge = st => st === "Retirada solicitada" ? '<span class="badge blue">Retirada solicitada</span>' : _badgeOriginal(st);
+
+function infoDivergencia(l) {
+  return [l.divContainerEncontrado ? `container no caminhão: ${l.divContainerEncontrado}` : "",
+          l.divLacreEncontrado ? `lacre no caminhão: ${l.divLacreEncontrado}` : ""].filter(Boolean).join(" · ");
+}
+// marca as linhas de uma tabela, na mesma ordem da lista que gerou a tabela
+function marcarLinhas(tbodyId, lista, fn) {
+  const linhas = document.querySelectorAll(`#${tbodyId} tr`);
+  lista.forEach((l, i) => { const tr = linhas[i], td = tr && tr.querySelector("td"); if (td) fn(l, td, tr); });
+}
+const _renderTransporteOriginal = window.renderTransporte;
+window.renderTransporte = function () {
+  _renderTransporteOriginal();
+  marcarLinhas("tbl-transporte", porStatus("Aguardando Gate In"), (l, td, tr) => {
+    if (!l.divPendente) return;
+    tr.style.background = "rgba(224,92,75,0.06)";
+    td.insertAdjacentHTML("beforeend", `<span class="tag-pend red">Corrigir cadastro</span><span class="div-info">Gate In encontrou ${esc(infoDivergencia(l))}</span>`);
+  });
+};
+const _renderGateInOriginal = window.renderGateIn;
+window.renderGateIn = function () {
+  _renderGateInOriginal();
+  const busca = $("gi-busca").value.toLowerCase();
+  marcarLinhas("tbl-gatein", porStatus("Aguardando Gate In").filter(l => contem(l, busca, ["placa", "container", "codigoLacre"])), (l, td) => {
+    if (l.divPendente) td.insertAdjacentHTML("beforeend", `<span class="tag-pend red" title="${esc(infoDivergencia(l))}">Aguardando correção</span>`);
+  });
+};
+const _renderEstoqueOriginal = window.renderEstoque;
+window.renderEstoque = function () {
+  _renderEstoqueOriginal();
+  const busca = $("est-busca").value.toLowerCase();
+  const lista = porStatus("Em Estoque").filter(l => contem(l, busca, ["container", "codigoLacre", "placa"]))
+    .sort((a, b) => a.dataHoraRecebimento.localeCompare(b.dataHoraRecebimento));
+  marcarLinhas("tbl-estoque", lista, (l, td) => {
+    if (l.solicitado) td.insertAdjacentHTML("beforeend", `<span class="tag-pend blue" title="Para ${esc(l.solicitacaoDestino)}">Solicitado</span>`);
+  });
+};
+
+const _editarTransporteFase3 = window.editarTransporte;
+window.editarTransporte = function (id) {
+  _editarTransporteFase3(id);
+  const l = lacres.find(x => x.id === id);
+  if (l && l.divPendente && editandoTransporteId === id)
+    showToast("O Gate In encontrou " + infoDivergencia(l) + ". Corrija o cadastro e salve.", "erro");
+};
+
+// ---------- Retirada = BAIXA (Segurança) ----------
+window.renderListaRetirada = function () {
+  const busca = $("ret-busca").value.toLowerCase();
+  const solicitados = porStatus("Em Estoque").filter(l => l.solicitado);
+  if (selectedRetiradaId && !solicitados.some(l => l.id === selectedRetiradaId)) limparRetirada();
+  const lista = solicitados.filter(l => contem(l, busca, ["container", "codigoLacre", "solicitacaoDestino"]))
+    .sort((a, b) => a.solicitadoEm.localeCompare(b.solicitadoEm));
+  $("lista-retirada").innerHTML = lista.length ? lista.map(l => `
+    <button type="button" class="lacre-select-item ${l.id === selectedRetiradaId ? "selected" : ""}" onclick="selecionarRetirada(${l.id})">
+      <div class="info">
+        <b class="mono">${esc(l.container)}</b>
+        <span>Lacre <span class="mono">${esc(l.codigoLacre)}</span> &middot; para <b>${esc(l.solicitacaoDestino)}</b></span>
+        <span>Solicitado por ${esc(l.solicitadoPor)} há ${duracao(l.solicitadoEm)}</span>
+      </div>
+      ${integridadeBadge(l.integroRecebimento)}
+    </button>`).join("") : `<div class="empty">${busca ? "Nada encontrado." : "Nenhuma solicitação de retirada em aberto."}</div>`;
+};
+const _selecionarRetiradaOriginal = window.selecionarRetirada;
+window.selecionarRetirada = function (id) {
+  _selecionarRetiradaOriginal(id);
+  const l = lacres.find(x => x.id === id);
+  if (!l) return;
+  $("ret-resumo").insertAdjacentHTML("beforeend",
+    `<div><span>Solicitado por</span><b>${esc(l.solicitadoPor)}</b></div>
+     <div><span>Solicitado em</span><b class="mono">${fmt(l.solicitadoEm)}</b></div>
+     <div><span>Para</span><b>${esc(l.solicitacaoDestino)}</b></div>
+     ${l.solicitacaoObs ? `<div><span>Obs. da solicitação</span><b>${esc(l.solicitacaoObs)}</b></div>` : ""}`);
+  $("ret-entregue-a").value = l.solicitacaoDestino;
+};
+
+// ---------- Solicitação (Operacional) ----------
+let solSelId = null, solEditando = false;
+function renderSolicitacao() {
+  const busca = $("sol-busca").value.toLowerCase();
+  const disponiveis = porStatus("Em Estoque").filter(l => !l.solicitado);
+  if (solSelId && !solEditando && !disponiveis.some(l => l.id === solSelId)) limparSolicitacao();
+  if (solSelId && solEditando && !porStatus("Em Estoque").some(l => l.id === solSelId && l.solicitado)) limparSolicitacao();
+  const lista = disponiveis.filter(l => contem(l, busca, ["container", "codigoLacre"]))
+    .sort((a, b) => a.dataHoraRecebimento.localeCompare(b.dataHoraRecebimento));
+  const podeCriar = pode("solicitacao.criar");
+  $("lista-solicitacao").innerHTML = lista.length ? lista.map(l => `
+    <button type="button" class="lacre-select-item ${l.id === solSelId && !solEditando ? "selected" : ""}" ${podeCriar ? `onclick="selecionarSolicitacao(${l.id}, false)"` : 'disabled title="Seu perfil não pode solicitar retiradas"'}>
+      <div class="info">
+        <b class="mono">${esc(l.container)}</b>
+        <span>Lacre <span class="mono">${esc(l.codigoLacre)}</span> &middot; ${esc(l.armador)} &middot; em estoque há ${duracao(l.dataHoraRecebimento)}</span>
+      </div>
+      ${integridadeBadge(l.integroRecebimento)}
+    </button>`).join("") : `<div class="empty">${busca ? "Nada encontrado." : "Nenhum lacre disponível em estoque."}</div>`;
+
+  const abertas = porStatus("Em Estoque").filter(l => l.solicitado).sort((a, b) => a.solicitadoEm.localeCompare(b.solicitadoEm));
+  $("tbl-solicitacoes").innerHTML = abertas.length ? abertas.map(l => {
+    const horas = (Date.now() - new Date(l.solicitadoEm)) / 3600000;
+    return `<tr class="clickable-row" tabindex="0" title="Clique duas vezes para abrir o registro" ondblclick="abrirDetalhe(${l.id})">
+      <td class="mono">${esc(l.container)}</td><td class="mono">${esc(l.codigoLacre)}</td><td>${esc(l.armador)}</td>
+      <td>${esc(l.solicitacaoDestino)}${l.solicitacaoObs ? `<div class="obs-text" style="margin:2px 0 0">${esc(l.solicitacaoObs)}</div>` : ""}</td>
+      <td>${esc(l.solicitadoPor)}</td><td class="mono">${fmt(l.solicitadoEm)}</td>
+      <td>${horas >= 24 ? `<span class="badge red">${duracao(l.solicitadoEm)}</span>` : `<span class="mono">${duracao(l.solicitadoEm)}</span>`}</td>
+      <td class="actions">
+        ${pode("solicitacao.editar") ? `<button class="link-btn" onclick="event.stopPropagation(); selecionarSolicitacao(${l.id}, true)">Editar</button>` : ""}
+        ${pode("solicitacao.excluir") ? `<button class="link-btn danger" onclick="event.stopPropagation(); cancelarSolicitacao(${l.id})">Cancelar</button>` : ""}
+      </td>
+    </tr>`;
+  }).join("") : linhaVazia(8, "Nenhuma solicitação em aberto.");
+}
+function selecionarSolicitacao(id, editar) {
+  if (!exigir(editar ? "solicitacao.editar" : "solicitacao.criar")) return;
+  const l = lacres.find(x => x.id === id);
+  if (!l) return;
+  solSelId = id; solEditando = !!editar;
+  $("sol-vazio").style.display = "none";
+  $("sol-form").style.display = "";
+  $("sol-titulo").textContent = editar ? "Editar solicitação" : "Solicitar retirada";
+  $("sol-btn").textContent = editar ? "Salvar alterações" : "Solicitar retirada";
+  $("sol-resumo").innerHTML = resumoHtml(l, ["container", "codigoLacre", "armador", "entrada", "integroRecebimento"]);
+  $("sol-destino").value = editar ? l.solicitacaoDestino : "";
+  $("sol-obs").value = editar ? l.solicitacaoObs : "";
+  $("sol-por").value = editar ? l.solicitadoPor : usuarioAtual().nome + " (usuário logado)";
+  renderSolicitacao();
+  $("sol-destino").focus();
+}
+function limparSolicitacao() {
+  solSelId = null; solEditando = false;
+  if ($("sol-form")) { $("sol-vazio").style.display = ""; $("sol-form").style.display = "none"; }
+  document.querySelectorAll("#lista-solicitacao .lacre-select-item.selected").forEach(e => e.classList.remove("selected"));
+}
+function salvarSolicitacao() {
+  const l = lacres.find(x => x.id === solSelId);
+  if (!l) return;
+  const destino = $("sol-destino").value.trim().replace(/\s+/g, " ");
+  if (!destino) { showToast("Informe para quem é a retirada.", "erro"); $("sol-destino").focus(); return; }
+  const editando = solEditando;
+  return gravar($("sol-btn"), async () => {
+    const r = await rpc(editando ? "editar_solicitacao" : "solicitar_retirada",
+                        { p_id: l.uuid, p_destino: destino, p_observacao: $("sol-obs").value.trim() });
+    if (!r.ok) return showToast(r.erro, "erro");
+    showToast(editando ? (r.sem_mudancas ? "Nenhuma alteração para salvar." : "Solicitação do lacre " + l.codigoLacre + " atualizada.")
+                       : "Retirada do lacre " + l.codigoLacre + " solicitada. Aguardando a baixa da Segurança.");
+    limparSolicitacao();
+    await recarregar();
+  });
+}
+function cancelarSolicitacao(id) {
+  if (!exigir("solicitacao.excluir")) return;
+  const l = lacres.find(x => x.id === id);
+  if (!l) return;
+  const motivo = prompt(`Cancelar a solicitação de retirada do lacre ${l.codigoLacre} (para ${l.solicitacaoDestino})?\n\nO lacre volta a ficar disponível no estoque. Motivo (opcional):`);
+  if (motivo === null) return;
+  return gravar(null, async () => {
+    const r = await rpc("cancelar_solicitacao", { p_id: l.uuid, p_motivo: motivo.trim() });
+    if (!r.ok) return showToast(r.erro, "erro");
+    if (solSelId === id) limparSolicitacao();
+    showToast("Solicitação do lacre " + l.codigoLacre + " cancelada.");
+    await recarregar();
+  });
+}
+const _renderTudoOriginal = window.renderTudo;
+window.renderTudo = function () {
+  _renderTudoOriginal();
+  if (viewAtiva() === "solicitacao") renderSolicitacao();
+};
+
+// ---------- linha do tempo: solicitação e divergência ----------
+const _abrirDetalheFase3 = window.abrirDetalhe;
+window.abrirDetalhe = function (id) {
+  _abrirDetalheFase3(id);
+  const l = lacres.find(x => x.id === id);
+  if (!l) return;
+  const itens = [...document.querySelectorAll("#det-timeline li")];
+  const passoRetirada = itens.find(li => (li.querySelector("h4") || {}).textContent === "Retirada — Estufagem");
+  const passoEntrada = itens.find(li => (li.querySelector("h4") || {}).textContent === "Entrada — Gate In");
+  if (l.divPendente && passoEntrada) {
+    passoEntrada.className = "warn";
+    passoEntrada.querySelector("p").innerHTML = `<b>Entrada bloqueada</b> por ${esc(l.divPendentePor)} em <b class="mono">${fmt(l.divPendenteEm)}</b>: ${esc(infoDivergencia(l))}. Aguardando o Transporte corrigir o cadastro.`;
+  }
+  if (l.solicitadoEm && passoRetirada) {
+    passoRetirada.insertAdjacentHTML("beforebegin", `<li class="done"><span class="pt"></span><h4>Solicitação — Operacional</h4>
+      <p>Solicitado por <b>${esc(l.solicitadoPor)}</b> em <b class="mono">${fmt(l.solicitadoEm)}</b>, para <b>${esc(l.solicitacaoDestino)}</b>.${l.solicitacaoObs ? "<br>Obs.: " + esc(l.solicitacaoObs) : ""}</p></li>`);
+    if (!l.dataHoraRetirada) passoRetirada.querySelector("p").innerHTML = `Aguardando a baixa da Segurança Patrimonial há <b>${duracao(l.solicitadoEm)}</b>.`;
+  }
+  if (passoRetirada) passoRetirada.querySelector("h4").textContent = "Baixa da retirada — Segurança";
 };
 
 // ---------- Login / troca de senha / sair ----------
@@ -4652,6 +4985,7 @@ async function sair() {
 
 async function iniciarSessao(dados) {
   SESSAO = dados;
+  if (!SESSAO.terminal) return abrirEscolhaTerminal(true);
   fecharLogin();
   aplicarPermissoesUI();
   await Promise.all([carregarArmadores(), carregarLacres(), carregarAcessos(), carregarAduBanco()]);
@@ -4667,7 +5001,7 @@ $("senha-confirma").addEventListener("keydown", e => { if (e.key === "Enter") sa
 setInterval(() => {
   if (!SESSAO || document.hidden || gravando) return;
   if (document.querySelector(".modal-overlay.active")) return;
-  if (selectedRetiradaId || editandoTransporteId) return;
+  if (selectedRetiradaId || editandoTransporteId || solSelId) return;
   const foco = document.activeElement;
   if (foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName) && foco.value) return; // alguém digitando
   recarregar(true);
