@@ -669,6 +669,11 @@
   body.sem-sessao header nav, body.sem-sessao main, body.sem-sessao footer { visibility: hidden; }
   .sessao b { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sessao .link-btn { font-size: 11.5px; padding: 2px 4px; }
+  .sessao-topo { display: inline-flex; margin-bottom: 12px; max-width: 100%; flex-wrap: wrap; row-gap: 4px; }
+  .sessao-quem { line-height: 1.25; }
+  .sessao-quem small { margin-top: 1px; }
+  body.fit .sessao-topo { margin-bottom: 6px; }
+  body.fit .sessao small { display: block; }
   .terminal-btn { font: inherit; font-size: 12px; font-weight: 600; color: var(--text-primary); background: #fff; border: 1px solid var(--border-strong); border-radius: 999px; padding: 3px 10px; cursor: pointer; white-space: nowrap; }
   .terminal-btn:hover { border-color: var(--accent-blue); }
   .terminal-lista { display: grid; gap: 8px; margin-bottom: 12px; }
@@ -680,6 +685,8 @@
   .tag-pend { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; vertical-align: middle; font-family: inherit; }
   .tag-pend.red { background: rgba(224,92,75,0.12); color: #B03A2C; }
   .tag-pend.blue { background: rgba(0,110,255,0.10); color: #0057CC; }
+  .conf-item.nao .conf-corrigir { display: none !important; }
+  .btn.btn-recusar { background: var(--alert-red, #E05C4B); border-color: var(--alert-red, #E05C4B); color: #fff; }
   .div-info { display: block; font-size: 11.5px; color: #B03A2C; margin-top: 3px; font-family: inherit; }
 </style>
 </head>
@@ -687,18 +694,18 @@
 
 <header>
   <div>
+    <div class="sessao sessao-topo" title="Usuário logado">
+      <span class="avatar" id="sessao-avatar"></span>
+      <div class="sessao-quem"><b id="sessao-nome"></b><small id="sessao-perfis"></small></div>
+      <button class="terminal-btn" id="terminal-btn" onclick="abrirEscolhaTerminal(false)" title="Terminal em que você está trabalhando">📍 <span id="terminal-nome">—</span></button>
+      <button class="link-btn" onclick="abrirTrocaSenha(false)">Senha</button>
+      <button class="link-btn" onclick="sair()">Sair</button>
+    </div>
     <h1 class="display"><span class="brand-move">Move</span><span class="brand-lacre">Lacre</span></h1>
     <div class="sub">Controle de Lacres &middot; Transporte &rarr; Gate In &rarr; Estoque &rarr; Estufagem</div>
     <div class="brand-graphic"><span class="dot"></span><span class="line"></span><span class="dot"></span></div>
   </div>
   <div class="header-right">
-    <div class="sessao" title="Usuário logado">
-      <span class="avatar" id="sessao-avatar"></span>
-      <div><small id="sessao-perfis"></small><b id="sessao-nome"></b></div>
-      <button class="terminal-btn" id="terminal-btn" onclick="abrirEscolhaTerminal(false)" title="Terminal em que você está trabalhando">📍 <span id="terminal-nome">—</span></button>
-      <button class="link-btn" onclick="abrirTrocaSenha(false)">Senha</button>
-      <button class="link-btn" onclick="sair()">Sair</button>
-    </div>
     <nav>
       <button class="nav-btn active" data-view="painel">Painel</button>
       <button class="nav-btn" data-view="transporte">Transporte</button>
@@ -1298,7 +1305,8 @@
         <div class="conf-alerta" id="conf-al-lacre"></div>
       </div>
     </div>
-    <div class="obs-text" style="margin:-2px 0 14px">Se algum não conferir, a entrada é <b>bloqueada</b>: o Transporte precisa corrigir o cadastro e você confere de novo.</div>
+    <div class="obs-text" style="margin:-2px 0 14px">Se algum não conferir, o lacre <b>não entra</b>. Você só registra a recusa, e o Transporte corrige o cadastro antes de uma nova conferência.</div>
+    <div class="aviso erro" id="gi-bloqueio" style="display:none;margin-bottom:16px"><span class="ic">!</span><div id="gi-bloqueio-txt"></div></div>
     <div class="field">
       <label>Foto do lacre <span class="req">*</span></label>
       <div class="camera" id="gi-cam">
@@ -4115,7 +4123,7 @@ function deBanco(r) {
     solicitadoPor: r.solicitado_por, solicitadoPorMim: r.solicitado_por_mim, solicitadoEm: iso(r.solicitado_em),
     solicitacaoDestino: r.solicitacao_destino || "", solicitacaoObs: r.solicitacao_obs || "",
     divPendente: !!r.div_pendente, divPendentePor: r.div_pendente_por, divPendenteEm: iso(r.div_pendente_em),
-    divContainerEncontrado: r.div_container_encontrado, divLacreEncontrado: r.div_lacre_encontrado,
+    divContainerNao: !!r.div_container_nao, divLacreNao: !!r.div_lacre_nao,
     cadastradoPor: r.cadastrado_por, cadastradoPorMim: r.cadastrado_por_mim, dataHoraCadastro: iso(r.data_hora_cadastro),
     qtdEdicoes: r.qtd_edicoes,
     recebidoPor: r.recebido_por, recebidoPorMim: r.recebido_por_mim, dataHoraRecebimento: iso(r.data_hora_recebimento),
@@ -4266,6 +4274,44 @@ window.cancelarCadastro = function (id) {
 };
 
 // ---------- Gate In ----------
+// Conferência: "Não confere" NÃO abre campo de digitação. Se algo não confere,
+// o lacre não entra: o botão vira "Recusar entrada" e só registra a recusa.
+window.marcarConferencia = function (campo, resp) {
+  confGate[campo] = resp;
+  const el = document.querySelector(`.conf-item[data-campo="${campo}"]`);
+  el.classList.remove("faltando");
+  el.classList.toggle("ok", resp === "ok");
+  el.classList.toggle("nao", resp === "nao");
+  el.querySelectorAll(".conf-btn").forEach(b => {
+    const on = b.dataset.resp === resp;
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+  });
+  $("gi-alerta").classList.remove("show");
+  atualizarBloqueioGate();
+};
+const _resetConferenciaOriginal = window.resetConferencia;
+window.resetConferencia = function (l) { _resetConferenciaOriginal(l); atualizarBloqueioGate(); };
+
+function botaoConfirmarGate() { return document.querySelector('button[onclick="confirmarGateIn()"]'); }
+function atualizarBloqueioGate() {
+  const bloqueado = confGate.container === "nao" || confGate.lacre === "nao";
+  const l = lacres.find(x => x.id === selectedGateInId);
+  const partes = [];
+  if (confGate.container === "nao") partes.push("o <b>container</b> não confere com o cadastro" + (l ? ` (<b class="mono">${esc(l.container)}</b>)` : ""));
+  if (confGate.lacre === "nao") partes.push("o <b>lacre</b> não confere com o cadastro" + (l ? ` (<b class="mono">${esc(l.codigoLacre)}</b>)` : ""));
+  $("gi-bloqueio-txt").innerHTML = bloqueado
+    ? `<b>Entrada não permitida:</b> ${partes.join(" e ")}. Este lacre não pode entrar. Registre a recusa para o Transporte corrigir o cadastro; depois ele volta para nova conferência.`
+    : "";
+  $("gi-bloqueio").style.display = bloqueado ? "" : "none";
+  // esconde foto, integridade e dados da entrada enquanto estiver bloqueado
+  [$("gi-cam").closest(".field"), document.querySelector('input[name="gi-integro"]').closest(".field"), $("gi-recebido-por").closest(".grid2")]
+    .forEach(e => { if (e) e.style.display = bloqueado ? "none" : ""; });
+  if (bloqueado && cameras["gi-cam"]) pararCamera("gi-cam");
+  const btn = botaoConfirmarGate();
+  btn.textContent = bloqueado ? "Recusar entrada e avisar o Transporte" : "Confirmar entrada";
+  btn.classList.toggle("btn-recusar", bloqueado);
+}
+
 window.confirmarGateIn = function () {
   if (!exigir("gatein.entrada")) return;
   const l = lacres.find(x => x.id === selectedGateInId);
@@ -4273,36 +4319,35 @@ window.confirmarGateIn = function () {
   const alerta = $("gi-alerta");
   const erro = msg => { alerta.className = "alert-box erro show"; alerta.textContent = msg; alerta.scrollIntoView({ block: "nearest" }); };
   if (conflitoCadastroEntrada(l)) return erro("Segregação de funções: quem cadastrou o lacre não pode dar a entrada dele.");
-
-  const conf = {};
   for (const campo of ["container", "lacre"]) {
-    const nome = campo === "container" ? "o container" : "o lacre";
-    const item = document.querySelector(`.conf-item[data-campo="${campo}"]`);
-    const cad = norm(valorCadastrado(campo));
-    if (!confGate[campo]) { item.classList.add("faltando"); return erro(`Marque se ${nome} confere com o cadastro.`); }
-    if (confGate[campo] === "ok") { conf[campo] = { confere: true, encontrado: null }; continue; }
-    const digitado = norm($("conf-inp-" + campo).value);
-    if (!digitado) { $("conf-inp-" + campo).focus(); return erro(`Digite ${nome} que está no caminhão.`); }
-    if (digitado === cad) { $("conf-inp-" + campo).focus(); return erro(`O valor digitado para ${nome} é igual ao cadastrado. Se confere, marque ✓ Confere.`); }
-    conf[campo] = { confere: false, encontrado: digitado };
-  }
-  const divergente = !conf.container.confere || !conf.lacre.confere;
-  const foto = cameras["gi-cam"].foto;
-  if (!divergente && !foto) return erro("Tire a foto do lacre antes de confirmar a entrada.");
-  const integro = document.querySelector('input[name="gi-integro"]:checked').value === "Sim";
-
-  return gravar(document.querySelector('button[onclick="confirmarGateIn()"]'), async () => {
-    const r = await rpc("dar_entrada", {
-      p_id: l.uuid,
-      p_container_confere: conf.container.confere, p_container_encontrado: conf.container.encontrado,
-      p_lacre_confere: conf.lacre.confere,         p_lacre_encontrado: conf.lacre.encontrado,
-      p_integro: integro, p_foto: foto
-    });
-    if (!r.ok) {
-      erro(r.erro);
-      if (r.recusado) await recarregar(true);   // a divergência fica marcada no lacre para o Transporte
-      return;
+    if (!confGate[campo]) {
+      document.querySelector(`.conf-item[data-campo="${campo}"]`).classList.add("faltando");
+      return erro(`Marque se ${campo === "container" ? "o container" : "o lacre"} confere com o cadastro.`);
     }
+  }
+  const bloqueado = confGate.container === "nao" || confGate.lacre === "nao";
+
+  if (bloqueado) {
+    if (!confirm(`Recusar a entrada do lacre ${l.codigoLacre}?\n\nO lacre NÃO entra no estoque e o Transporte vai ver o cadastro marcado para correção.`)) return;
+    return gravar(botaoConfirmarGate(), async () => {
+      const r = await rpc("dar_entrada", {
+        p_id: l.uuid, p_container_confere: confGate.container === "ok", p_container_encontrado: null,
+        p_lacre_confere: confGate.lacre === "ok", p_lacre_encontrado: null, p_integro: null, p_foto: null });
+      if (!r.recusado) return erro(r.erro || "Não foi possível registrar a recusa.");
+      fecharGateIn();
+      showToast("Entrada do lacre " + l.codigoLacre + " recusada. O Transporte foi avisado para corrigir o cadastro.", "erro");
+      await recarregar();
+    }).finally(atualizarBloqueioGate);
+  }
+
+  const foto = cameras["gi-cam"].foto;
+  if (!foto) return erro("Tire a foto do lacre antes de confirmar a entrada.");
+  const integro = document.querySelector('input[name="gi-integro"]:checked').value === "Sim";
+  return gravar(botaoConfirmarGate(), async () => {
+    const r = await rpc("dar_entrada", {
+      p_id: l.uuid, p_container_confere: true, p_container_encontrado: null,
+      p_lacre_confere: true, p_lacre_encontrado: null, p_integro: integro, p_foto: foto });
+    if (!r.ok) return erro(r.erro);
     fecharGateIn();
     showToast("Entrada do lacre " + l.codigoLacre + " registrada. Lacre em estoque.");
     await recarregar();
@@ -4719,8 +4764,7 @@ const _badgeOriginal = window.badge;
 window.badge = st => st === "Retirada solicitada" ? '<span class="badge blue">Retirada solicitada</span>' : _badgeOriginal(st);
 
 function infoDivergencia(l) {
-  return [l.divContainerEncontrado ? `container no caminhão: ${l.divContainerEncontrado}` : "",
-          l.divLacreEncontrado ? `lacre no caminhão: ${l.divLacreEncontrado}` : ""].filter(Boolean).join(" · ");
+  return [l.divContainerNao ? "container não confere" : "", l.divLacreNao ? "lacre não confere" : ""].filter(Boolean).join(" e ");
 }
 // marca as linhas de uma tabela, na mesma ordem da lista que gerou a tabela
 function marcarLinhas(tbodyId, lista, fn) {
@@ -4733,7 +4777,7 @@ window.renderTransporte = function () {
   marcarLinhas("tbl-transporte", porStatus("Aguardando Gate In"), (l, td, tr) => {
     if (!l.divPendente) return;
     tr.style.background = "rgba(224,92,75,0.06)";
-    td.insertAdjacentHTML("beforeend", `<span class="tag-pend red">Corrigir cadastro</span><span class="div-info">Gate In encontrou ${esc(infoDivergencia(l))}</span>`);
+    td.insertAdjacentHTML("beforeend", `<span class="tag-pend red">Corrigir cadastro</span><span class="div-info">Gate In: ${esc(infoDivergencia(l))} com o caminhão</span>`);
   });
 };
 const _renderGateInOriginal = window.renderGateIn;
@@ -4760,7 +4804,7 @@ window.editarTransporte = function (id) {
   _editarTransporteFase3(id);
   const l = lacres.find(x => x.id === id);
   if (l && l.divPendente && editandoTransporteId === id)
-    showToast("O Gate In encontrou " + infoDivergencia(l) + ". Corrija o cadastro e salve.", "erro");
+    showToast("Gate In: " + infoDivergencia(l) + " com o caminhão. Confira com o motorista, corrija o cadastro e salve.", "erro");
 };
 
 // ---------- Retirada = BAIXA (Segurança) ----------
