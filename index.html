@@ -678,8 +678,11 @@
   .login-box .brand-logo img { width: 260px; max-width: 100%; height: auto; }
   .sessao-topo { display: inline-flex; max-width: 100%; flex-wrap: wrap; row-gap: 4px; }
   /* sessão sempre na primeira linha, colada no canto superior direito */
-  .sessao-barra { flex: 0 0 100%; display: flex; justify-content: flex-end; margin-bottom: -6px; }
-  body.fit .sessao-barra { margin-bottom: -10px; }
+  /* linha 1: marca à esquerda + sessão à direita, alinhadas no topo; linha 2: menu */
+  header > div:not(.sessao-barra):not(.header-right) { order: 1; align-self: flex-start; }
+  .sessao-barra { order: 2; flex: 1 1 auto; display: flex; justify-content: flex-end; align-self: flex-start; }
+  header > .header-right { order: 3; flex: 0 0 100%; align-items: flex-start; }
+  body.fit header > .header-right { flex-direction: row; }
   body.tv .sessao-barra { display: none; }
   .sessao-quem { line-height: 1.25; }
   .sessao-quem small { margin-top: 1px; }
